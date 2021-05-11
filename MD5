@@ -1,17 +1,17 @@
-1ef4d6ea7035f56c3d5788584df210d1 *DESCRIPTION
+5cebe985ce7c4f5596d0df5369ef6879 *DESCRIPTION
 76f642380e0730be29d604e81d7e89a7 *LICENSE
 4ceb4c3929ae111d143140492b884a6d *NAMESPACE
-88e66d926d0b97a5a1ead6bae1717d58 *NEWS.md
+52209a90aa3a321b84849bddb656e37b *NEWS.md
 748822b6e0445cb82ca3d57750cc289c *R/docx2pdf.R
 f232a9fa808edfd075074dfcdda83fe9 *R/to_miniature.R
-f8ef2f523001406af5278a0849622e5c *R/to_pdf.R
+2c6588ad747987671fdcadeea20b6fe9 *R/to_pdf.R
 c1a506ae3305356e33c72e840d1dae82 *R/utils.R
 d91a9596f6d87c2050c29ffdd0e7c38a *README.md
 891da1ec193fa31c4aa1cbfae5be116b *inst/doc-examples/example.Rmd
 68b994aa0ea6ec0faaf29330a5e5d3ba *inst/doc-examples/example.docx
 64d9d7e0509bc29ad58594201619a0e9 *inst/doc-examples/example.pptx
 26e7315fdd605b65e0dcd88ac1af73d8 *inst/doc-examples/minimal-word.docx
-6a214c2408defb617646cd66dea98a0c *man/check_libreoffice_export.Rd
+50bbe93adb4f420b2ecacc27b47e2c9e *man/check_libreoffice_export.Rd
 2589508a948a979e3ed6ad6ff5333c88 *man/docx2pdf.Rd
 b2f371affd8065254c29e7a818f0fd91 *man/docx2pdf_available.Rd
 534fa10643ab1e2a44dc54535409f13f *man/docx2pdf_install.Rd
@@ -19,4 +19,4 @@ b2f371affd8065254c29e7a818f0fd91 *man/docx2pdf_available.Rd
 fa9c3019f92e03734a12ca67d8403609 *man/figures/README-unnamed-chunk-3-1.png
 848a3f6e8eab20b5ccbd35383a6c039d *man/figures/README-unnamed-chunk-4-1.png
 e3a27b48a85252f41b1fad9b7780bd0b *man/to_miniature.Rd
-ed21beac5a33691b59a918e140548d98 *man/to_pdf.Rd
+b3bed9bfb6442a7620262ed289d38117 *man/to_pdf.Rd
