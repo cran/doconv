@@ -1,3 +1,16 @@
+# doconv 0.1.4
+
+## Features
+
+* new fonction `docx_update()` to refresh all TOC and fields.
+* new `dpi` parameters for image resolution
+
+## Changes
+
+* internals: png filenames are now defined with a correct mask
+* [breaking change]: python, docx2pdf are not required anymore. 
+* `tools::R_user_dir()` is used instead of package 'rappdirs'.
+
 # doconv 0.1.3
 
 ## Issues

@@ -1,19 +1,22 @@
-#' @importFrom rappdirs user_data_dir
+#' @importFrom tools R_user_dir
 #' @export
 #' @title manage docx2pdf working directory
 #' @description Initialize or remove working directory used
 #' when docx2pdf create the PDF.
 #'
-#' The operation may require writing rights to the directory by the Word program.
-#' On some operating systems (Mac OS), Word (via docx2pdf) must be authorized
+#' On 'macOS', the operation require writing rights to the directory by the Word or PowerPoint program.
+#' Word or PowerPoint program must be authorized
 #' to write in the directories, if the authorization does not exist, a
 #' manual confirmation window is launched, thus preventing automation.
 #'
-#' The package chooses to use only one directory in order to have only one
-#' time to click this confirmation. This directory is managed by the rappdirs
-#' package. Its value can be read with the `working_directory()` function.
-#' The directory can be deleted with `rm_working_directory()` and created
-#' with `init_working_directory()`.
+#' Fortunately, users only have to do this once. The package implementation use
+#' only one directory where results are saved in order to have only one
+#' time to click this confirmation.
+#'
+#' This directory is managed by R function [R_user_dir()]. Its value can be
+#' read with the `working_directory()` function. The directory can be
+#' deleted with `rm_working_directory()` and created with `init_working_directory()`.
+#' Each call will remove that directory when completed.
 #'
 #' As a user, you do not have to use these functions because they are called
 #' automatically by the `docx2pdf()` function. They are provided to meet
@@ -23,7 +26,7 @@
 #' directories \[...\], provided that by default sizes are kept as small as possible
 #' and the contents are actively managed (including removing outdated material)."*
 working_directory <- function(){
-  dir <- user_data_dir(appname = "doconv", appauthor = "ardata")
+  dir <- R_user_dir(package = "doconv", which = "data")
   absolute_path(dir)
 }
 
@@ -54,10 +57,11 @@ absolute_path <- function(x){
 }
 
 #' @noRd
-#' @importFrom pdftools pdf_convert
+#' @importFrom pdftools pdf_convert pdf_length
 #' @title Convert a PDF document to images
 #' @description Convert a pdf file to a list of images (magick images).
 #' @param file the pdf file
+#' @param dpi resolution (dots per inch) to render, see [pdf_convert()].
 #' @examples
 #' infile <- tempfile(fileext = ".pdf")
 #' pdf(file = infile, width = 8.3, height = 11.7)
@@ -66,7 +70,7 @@ absolute_path <- function(x){
 #' dev.off()
 #'
 #' pdf_to_images(file = infile)
-pdf_to_images <- function(file) {
+pdf_to_images <- function(file, dpi = 150) {
 
   if(!file.exists(file)){
     stop("could not find ", shQuote(file, type = "sh"))
@@ -74,10 +78,11 @@ pdf_to_images <- function(file) {
   dest <- tempfile()
   dir.create(dest)
 
-  png_file <- gsub("\\.pdf$", "%03d.png", basename(file))
+  png_file <- gsub("\\.pdf$", "_%d.%s", basename(file))
 
   screen_copies <- pdf_convert(
     pdf = file, format = "png", verbose = FALSE,
+    dpi = dpi,
     filenames = file.path(dest, png_file)
   )
   img_src <- list.files(dest, pattern = "\\.png$", full.names = TRUE)
