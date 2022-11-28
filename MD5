@@ -1,8 +1,9 @@
-b864422fdfd4a59e9c60318973f0762b *DESCRIPTION
+fe41918bcf9ea9782b8b2ddee912f053 *DESCRIPTION
 76f642380e0730be29d604e81d7e89a7 *LICENSE
-38f14643189cb6e3909d7562a1671d4d *NAMESPACE
+3aed21909b6592072157b3bda1102c5f *NAMESPACE
 c4f6f7afa758b72dcc4e619ade75e895 *NEWS.md
 cb888b50b79396331e1788b19c7f58c4 *R/docx2pdf.R
+e4b513b009e0fc40c3b496cc78be3e2b *R/expect_snapshot_doc.R
 bdcc1a13107c6ebbc68e5506039275a9 *R/to_miniature.R
 aa66756ceb044a75c30500ea51a7e815 *R/to_pdf.R
 bc667a1e44a99cc618be3ed6023d9076 *R/utils.R
@@ -20,6 +21,7 @@ c53115909cade95922338bfd72a369dd *inst/scripts/powershell/pptx2pdf.ps1
 50bbe93adb4f420b2ecacc27b47e2c9e *man/check_libreoffice_export.Rd
 1714d4a098117c2423dc9b78f885a364 *man/docx2pdf.Rd
 77e7ea34b7aac01df1aa3cca50312a0f *man/docx_update.Rd
+965768170286e2cbcd4c0bbc654dd6f3 *man/expect_snapshot_doc.Rd
 bd901b6600ab8508feff782551cee1c1 *man/figures/README-unnamed-chunk-3-1.png
 47494bd3184d4563f70172b0e8ca9da7 *man/figures/README-unnamed-chunk-4-1.png
 6e03b1d3be5193ca2738a7bcbec27a19 *man/figures/authorizations.png
