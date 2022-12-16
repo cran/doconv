@@ -5,18 +5,40 @@ load_package <- function(z) {
   suppressPackageStartupMessages(require(z, character.only = TRUE))
 }
 
-#' @title Test if the current document matches a target document
+#' @title Visual test for a 'Microsoft Office' document
 #' @description This expectation can be used with 'tinytest' and 'testthat'
 #' to check if a current document of type pdf, docx, pptx or png
 #' matches a target document. When the expectation is checked
 #' for the first time, the expectation fails and a target miniature
-#' of the document is saved in a folder named `_tinytest_doconv`.
+#' of the document is saved in a folder named `_tinytest_doconv` or
+#' `_snaps`.
 #' @param name a string to identify the test. Each document in the test suite must have a unique name.
 #' @param x file path of a document
 #' @param tolerance the ratio of different pixels that is acceptable before triggering a failure.
 #' @param engine test package being used in the test suite, one of "tinytest" or "testthat".
 #' @return A [tinytest::tinytest()] or a [testthat::expect_snapshot_file] object.
 #' @export
+#' @examples
+#' file <- system.file(package = "doconv",
+#'   "doc-examples/example.docx")
+#' \dontrun{
+#' if (require("tinytest") && msoffice_available()){
+#'   # first run add a new snapshot
+#'   expect_snapshot_doc(x = file, name = "docx file", engine = "tinytest")
+#'   # next runs compare with the snapshot
+#'   expect_snapshot_doc(x = file, name = "docx file", engine = "tinytest")
+#'
+#'   # cleaning directory
+#'   unlink("_tinytest_doconv", recursive = TRUE, force = TRUE)
+#' }
+#' if (require("testthat") && msoffice_available()){
+#'   local_edition(3)
+#'   # first run add a new snapshot
+#'   expect_snapshot_doc(x = file, name = "docx file", engine = "testthat")
+#'   # next runs compare with the snapshot
+#'   expect_snapshot_doc(x = file, name = "docx file", engine = "testthat")
+#' }
+#' }
 expect_snapshot_doc <- function(
     name,
     x,
@@ -26,6 +48,12 @@ expect_snapshot_doc <- function(
 
   engine <- match.arg(engine)
   load_package(engine)
+
+  if (inherits(x, "rdocx")) {
+    x <- print(x, target = tempfile(fileext = ".docx"))
+  } else if (inherits(x, "rpptx")) {
+    x <- print(x, target = tempfile(fileext = ".pptx"))
+  }
 
   if ("testthat" %in% engine) {
     expect_snapshot_testthat(
@@ -38,6 +66,74 @@ expect_snapshot_doc <- function(
   }
 
 }
+
+#' @title Visual test for an HTML document
+#' @description This expectation can be used with 'tinytest' and 'testthat'
+#' to check if a current document of type HTML
+#' matches a target document. When the expectation is checked
+#' for the first time, the expectation fails and a target miniature
+#' of the document is saved in a folder named `_tinytest_doconv` or
+#' `_snaps`.
+#' @param name a string to identify the test. Each document in the test suite must have a unique name.
+#' @param x file path of an HTML document
+#' @param tolerance the ratio of different pixels that is acceptable before triggering a failure.
+#' @param engine test package being used in the test suite, one of "tinytest" or "testthat".
+#' @param ... arguments used by `webshot::webshot2()`.
+#' @return A [tinytest::tinytest()] or a [testthat::expect_snapshot_file] object.
+#' @export
+#' @examples
+#' file <- tempfile(fileext = ".html")
+#' html <- paste0("<html><head><title>hello</title></head>",
+#'        "<body><h1>Hello World</h1></body></html>\n")
+#' cat(html, file = file)
+#'
+#' \dontrun{
+#' if (require("tinytest") && require("webshot2")){
+#'   # first run add a new snapshot
+#'   expect_snapshot_html(x = file, name = "html file",
+#'     engine = "tinytest")
+#'   # next runs compare with the snapshot
+#'   expect_snapshot_html(x = file, name = "html file",
+#'     engine = "tinytest")
+#'
+#'   # cleaning directory
+#'   unlink("_tinytest_doconv", recursive = TRUE,
+#'     force = TRUE)
+#' }
+#' if (require("testthat") && require("webshot2")){
+#'   local_edition(3)
+#'   # first run add a new snapshot
+#'   expect_snapshot_html(x = file, name = "html file",
+#'     engine = "testthat")
+#'   # next runs compare with the snapshot
+#'   expect_snapshot_html(x = file, name = "html file",
+#'     engine = "testthat")
+#' }
+#' }
+expect_snapshot_html <- function(
+    name,
+    x,
+    tolerance = 0.001,
+    engine = c("tinytest", "testthat"),
+    ...
+    ) {
+
+  engine <- match.arg(engine)
+  load_package(engine)
+  x <- htmlshot(x, fileout = tempfile(fileext = ".png"), ...)
+
+  if ("testthat" %in% engine) {
+    expect_snapshot_testthat(
+      name = name, x = x,
+      tolerance = tolerance)
+  } else {
+    expect_snapshot_tinytest(
+      name = name, current = x,
+      tolerance = tolerance)
+  }
+
+}
+
 
 expect_snapshot_testthat <- function(name, x, tolerance = 0.001) {
   name <- paste0(name, ".png")
@@ -147,17 +243,16 @@ expect_office_doc_diff_tinytest <- function(current,
   to_miniature(current, fileout = current_miniature, width = width)
 
   target_miniature <- file.path(tinytest_dir, basename(current_miniature))
-
   if (!file.exists(target_miniature)) {
     file.copy(current_miniature, target_miniature, overwrite = TRUE)
     msg <- sprintf("new miniature was saved to: %s", target_miniature)
-    flag <- FALSE
-    results <- "0%"
+    flag <- TRUE
+    results <- "100%"
   } else {
     results <- diff_image(img1 = target_miniature, img2 = current_miniature)
     if (results < 0) {
       msg <- "difference detected - unequal dimensions"
-      results <- "??"
+      results <- "N/A"
       flag <- FALSE
     } else if (results < tolerance) {
       msg <- "no difference detected"
@@ -240,7 +335,7 @@ diff_image <- function(img1, img2) {
 tinytest_dir <- "_tinytest_doconv"
 
 .onLoad = function(libname, pkgname) {
-  if (requireNamespace("testthat")) {
+  if (requireNamespace("tinytest")) {
     tinytest::register_tinytest_extension(
       "doconv",
       c("expect_snapshot_doc"))
