@@ -1,3 +1,14 @@
+# doconv 0.3.2
+
+## Features
+
+- add support for 'RTF'.
+
+## Issues
+
+- For 'Windows' users, figure resolution should now remain the same
+when exporting 'Word' to 'PDF'.
+
 # doconv 0.3.1
 
 ## Issues
