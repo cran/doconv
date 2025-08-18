@@ -1,12 +1,12 @@
-d5714430fdec19651df30649feb84a6f *DESCRIPTION
+a62ead47250b05d53ef4199e5386d935 *DESCRIPTION
 76f642380e0730be29d604e81d7e89a7 *LICENSE
 3446d151684b572d5986dac7a9918f1f *NAMESPACE
-2d8b3cf698c9f915175a0fa22639b3fe *NEWS.md
-530e868e0bdd0feb63a5664749415903 *R/docx2pdf.R
-7fe3e1dcac7df42840de51a678eeefc3 *R/expect_snapshot_doc.R
-e076d8e69dc7078e14a58c35b3c18070 *R/to_miniature.R
-0d65af9aefaa42fa66fddcbbb40cc477 *R/to_pdf.R
-bc667a1e44a99cc618be3ed6023d9076 *R/utils.R
+91e2a9278c1400bbd2fc28c8a8c54e5a *NEWS.md
+4e47645aa385fd62c961278dc37f51b3 *R/docx2pdf.R
+bd0313b71194fe4f380baf307a93f6bb *R/expect_snapshot_doc.R
+2b5371332b8a5fadfce906f67257bd3d *R/to_miniature.R
+a74722c54e7a7e265ff1e63a1b360845 *R/to_pdf.R
+b172f9fbdfdd9c8c2b373fc161e1f849 *R/utils.R
 1743432d5100f4a9a8f88d7b116008bd *README.md
 891da1ec193fa31c4aa1cbfae5be116b *inst/doc-examples/example.Rmd
 68b994aa0ea6ec0faaf29330a5e5d3ba *inst/doc-examples/example.docx
@@ -29,6 +29,6 @@ ad7d453efcf2e81fed18d4025581ed1a *man/figures/README-unnamed-chunk-3-1.png
 738e7f80f36a86c6272884316f176c97 *man/figures/logo.png
 23822c4b706cad23fd5ba7676b4c3e10 *man/msoffice_available.Rd
 6e657a6370b54df4eebca9323fa7e41d *man/pptx2pdf.Rd
-72ea160d1a25f9577fbe87685f043326 *man/to_miniature.Rd
+7006b7a9fbe350a26c6442c52a36bc46 *man/to_miniature.Rd
 fa2656d735af0fe24b35412058081f08 *man/to_pdf.Rd
 a83440f924a1805ed9b30a890b2a3400 *man/working_directory.Rd
