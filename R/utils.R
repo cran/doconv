@@ -56,6 +56,23 @@ absolute_path <- function(x){
   epath
 }
 
+# Escape a file path for a PowerShell double-quoted string.
+# Backtick is the PS escape character; $, ", and ` need escaping.
+escape_path_ps <- function(path) {
+  path <- gsub("/", "\\", path, fixed = TRUE)
+  path <- gsub("`", "``", path, fixed = TRUE)
+  path <- gsub('"', '`"', path, fixed = TRUE)
+  path <- gsub("$", "`$", path, fixed = TRUE)
+  path
+}
+
+# Escape a file path for an AppleScript double-quoted string.
+escape_path_applescript <- function(path) {
+  path <- gsub("\\", "\\\\", path, fixed = TRUE)
+  path <- gsub('"', '\\"', path, fixed = TRUE)
+  path
+}
+
 #' @noRd
 #' @importFrom pdftools pdf_convert pdf_length
 #' @title Convert a PDF document to images
@@ -91,6 +108,61 @@ pdf_to_images <- function(file, dpi = 150) {
 }
 
 
+ggplot_to_png <- function(x, width = 9, height = 7, units = "in", res = 200) {
+  if (!requireNamespace("ragg", quietly = TRUE)) {
+    stop("Package 'ragg' is required for PNG rendering.")
+  }
+  if (inherits(x, "gg")) {
+    x <- list(x)
+  } else if (is.list(x)) {
+    x <- Filter(function(el) inherits(el, "gg"), x)
+  }
+  vapply(x, function(obj) {
+    path <- tempfile(fileext = ".png")
+    ragg::agg_png(filename = path, width = width, height = height,
+                  units = units, res = res)
+    tryCatch(
+      print(obj),
+      error = function(e) {
+        grid::grid.rect(gp = grid::gpar(col = NA, fill = "white"))
+      },
+      finally = grDevices::dev.off()
+    )
+    path
+  }, character(1))
+}
+
+compute_row <- function(img_list, ncol, ncol_landscape = NULL) {
+  n <- length(img_list)
+
+  if (is.null(ncol_landscape)) {
+    return(rep(seq_len(ceiling(n / ncol)), each = ncol, length.out = n))
+  }
+
+  orientations <- vapply(img_list, function(img) {
+    info <- image_info(img)
+    if (info$width > info$height) "landscape" else "portrait"
+  }, character(1))
+
+  row <- integer(n)
+  current_row <- 1L
+  col_in_row <- 0L
+  current_orientation <- orientations[1]
+
+  for (i in seq_len(n)) {
+    max_cols <- if (orientations[i] == "landscape") ncol_landscape else ncol
+    if (orientations[i] != current_orientation || col_in_row >= max_cols) {
+      current_row <- current_row + 1L
+      col_in_row <- 0L
+      current_orientation <- orientations[i]
+    }
+    col_in_row <- col_in_row + 1L
+    row[i] <- current_row
+  }
+
+  row
+}
+
 #' @import magick
 #' @noRd
 #' @title Convert a set of images to a single png miniature
@@ -98,13 +170,26 @@ pdf_to_images <- function(file, dpi = 150) {
 #' where pages are arranged in a layout.
 #' @param img_list a list of magick image objects
 #' @param row row index for every pages
+#' @param ncol number of pages per row
+#' @param ncol_landscape number of landscape pages per row
 #' @param width width of a single image
 #' @param border_color border color
 #' @param border_geometry border geometry to be added around images
 #' @param fileout is not NULL image is saved to fileout
-images_to_miniature <- function(img_list, row = NULL, width = 650,
+images_to_miniature <- function(img_list, row = NULL, ncol = NULL,
+                                ncol_landscape = NULL, width = 650,
                                 border_color = "#ccc", border_geometry = "2x2",
                                 fileout = NULL) {
+
+  if (!is.null(row) && !is.null(ncol)) {
+    warning("`row` and `ncol` are both set, `ncol` is ignored.")
+  }
+  if (!is.null(ncol_landscape) && is.null(ncol)) {
+    stop("`ncol_landscape` requires `ncol`.")
+  }
+  if (is.null(row) && !is.null(ncol)) {
+    row <- compute_row(img_list, ncol = ncol, ncol_landscape = ncol_landscape)
+  }
 
   if (is.null(row)) {
     row <- seq_along(img_list)
