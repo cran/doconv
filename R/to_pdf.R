@@ -3,16 +3,20 @@
 #' @description Convert documents to pdf with a script using
 #' 'Office' or 'Libre Office'.
 #'
-#' If 'Microsoft Word' and 'Microsoft PowerPoint' are available,
-#' files 'docx', 'doc', 'rtf' and 'pptx' will be converted to
-#' PDF with 'Office' via a script.
+#' If 'Microsoft Word', 'Microsoft PowerPoint' and 'Microsoft Excel'
+#' are available, files 'docx', 'doc', 'rtf', 'pptx', 'ppt', 'xlsx'
+#' and 'xlsm' will be converted to PDF with 'Office' via a script.
 #'
-#' If 'Microsoft Word' and 'Microsoft PowerPoint' are not available
-#' (on linux for example), 'Libre Office' will be used to convert
-#' documents. In that case the rendering can be different from
+#' If they are not available (on linux for example), 'Libre Office'
+#' will be used to convert documents. In that case the rendering can be different from
 #' the original document. It supports very well 'Microsoft PowerPoint'
 #' to PDF. 'Microsoft Word' can also be converted but some Word
 #' features are not supported, such as sections.
+#'
+#' Workbooks ('xlsx', 'xlsm', 'xls', 'ods') are exported sheet by sheet:
+#' 'Excel' scales each sheet to the width of one page, see [xlsx2pdf()];
+#' 'LibreOffice' exports each sheet on a single page with the size of
+#' its content.
 #'
 #' @param input,output file input and optional file output. If output
 #' file is not provided, the value will be the value of input file with
@@ -20,14 +24,22 @@
 #' @param UserInstallation use this value to set a non-default user profile path
 #' for 'LibreOffice'. If not provided a temporary dir is created. It makes possibles
 #' to use more than a single session of 'LibreOffice'.
-#' @param timeout timeout in seconds, ignored if 0.
-#' @section Ubuntu platforms:
-#' On some Ubuntu platforms, 'LibreOffice' require to add in
-#' the environment variable `LD_LIBRARY_PATH` the following path:
-#' `/usr/lib/libreoffice/program` (you should see the message
-#' "libreglo.so cannot open shared object file" if it is the case). This
-#' can be done with R
-#' command `Sys.setenv(LD_LIBRARY_PATH = "/usr/lib/libreoffice/program/")`
+#' @param timeout timeout in seconds that 'LibreOffice' is allowed to use
+#' to convert the document, ignored if 0. It is not used when 'Microsoft
+#' Office' converts the document.
+#' @param show_markup if `TRUE`, tracked changes and comments of a 'Word'
+#' document are shown in the PDF. If `FALSE` (the default), the PDF shows
+#' the final document, without tracked changes marks and without comments.
+#' It is ignored for other documents. With 'LibreOffice', comments are
+#' drawn in the margin, and hiding tracked changes is only supported for
+#' 'docx' files and requires package 'officer'.
+#' @section Linux platforms:
+#' R adds its own library directories to the environment variable
+#' `LD_LIBRARY_PATH`, which made 'LibreOffice' fail when run from R
+#' (with the message "libreglo.so cannot open shared object file", or
+#' an abort when `/usr/lib/libreoffice/program` was added to this
+#' variable). 'LibreOffice' is now run without this variable, there is
+#' nothing to set.
 #' @examples
 #' library(locatexec)
 #' if (exec_available("libreoffice") && check_libreoffice_export()) {
@@ -50,7 +62,8 @@
 #' @importFrom locatexec libreoffice_exec
 #' @importFrom locatexec is_windows
 to_pdf <- function(input, output = gsub("\\.[[:alnum:]]+$", ".pdf", input),
-                   timeout = 120, UserInstallation = NULL) {
+                   timeout = 120, UserInstallation = NULL, show_markup = FALSE) {
+  check_show_markup(show_markup)
   if (!file.exists(input)) {
     stop("input does not exist")
   }
@@ -70,28 +83,45 @@ to_pdf <- function(input, output = gsub("\\.[[:alnum:]]+$", ".pdf", input),
 
   if(is.null(UserInstallation)){
     UserInstallation <- absolute_path(tempfile(pattern = "lo_", fileext = ""))
-    on.exit(unlink(UserInstallation, recursive = TRUE, force = TRUE))
+    on.exit(unlink(UserInstallation, recursive = TRUE, force = TRUE), add = TRUE)
   } else {
     UserInstallation <- absolute_path(UserInstallation)
   }
 
 
-  if(grepl("\\.(doc|docx|rtf)$", input) && exec_available("word")){
-    docx2pdf(input = input, output = output)
-  } else if(grepl("\\.(ppt|pptx)$", input) && exec_available("powerpoint")){
+  if(grepl("\\.(doc|docx|rtf)$", input, ignore.case = TRUE) && exec_available("word")){
+    docx2pdf(input = input, output = output, show_markup = show_markup)
+  } else if(grepl("\\.(ppt|pptx)$", input, ignore.case = TRUE) && exec_available("powerpoint")){
     pptx2pdf(input = input, output = output)
+  } else if(grepl("\\.(xlsx|xlsm)$", input, ignore.case = TRUE) && exec_available("excel")){
+    xlsx2pdf(input = input, output = output)
   } else {
     file_set_origin <- list.files(default_root, full.names = TRUE)
+
+    lo_input <- input
+    if (!show_markup) {
+      revisions_dir <- tempfile()
+      dir.create(revisions_dir)
+      on.exit(unlink(revisions_dir, recursive = TRUE, force = TRUE), add = TRUE)
+      lo_input <- docx_hide_revisions(input, dir = revisions_dir)
+    }
 
     res <- run(
           libreoffice_exec(),
           args = c("--headless",
                    if(!is_windows()) sprintf("-env:UserInstallation=file://%s", UserInstallation)
                    else sprintf("-env:UserInstallation=file:///%s", UserInstallation),
-                   "--convert-to", "pdf:writer_pdf_Export",
+                   "--convert-to", libreoffice_pdf_filter(input, show_markup),
                    "--outdir", default_root,
-                   input),
-          error_on_status = FALSE)
+                   lo_input),
+          env = libreoffice_env(),
+          error_on_status = FALSE,
+          timeout = if (timeout > 0) timeout else Inf)
+
+    if (isTRUE(res$timeout)) {
+      stop("could not convert ", input, ": 'LibreOffice' did not finish within ",
+           timeout, " seconds.", call. = FALSE)
+    }
     success <- res$status == 0
 
     if(!success) stop("could not convert ", input, call. = FALSE)
@@ -101,8 +131,10 @@ to_pdf <- function(input, output = gsub("\\.[[:alnum:]]+$", ".pdf", input),
     success <- file.copy(from = file_set_new, to = output, overwrite = TRUE)
     unlink(file.path(default_root, basename(input)), force = TRUE)
     unlink(file_set_new, force = TRUE)
-    if (any(!success)) {
-      stop("could not convert ", input, call. = FALSE)
+    # 'LibreOffice' can exit with status 0 without writing anything
+    if (!length(success) || any(!success)) {
+      stop("could not convert ", input, ": 'LibreOffice' did not produce a PDF. ",
+           trimws(paste(res$stdout, res$stderr)), call. = FALSE)
     }
   }
 
@@ -140,7 +172,7 @@ check_libreoffice_export <- function(UserInstallation = NULL) {
 
   if(is.null(UserInstallation)){
     UserInstallation <- absolute_path(tempfile(pattern = "lo_", fileext = ""))
-    on.exit(unlink(UserInstallation, recursive = TRUE, force = TRUE))
+    on.exit(unlink(UserInstallation, recursive = TRUE, force = TRUE), add = TRUE)
   } else {
     UserInstallation <- absolute_path(UserInstallation)
   }
@@ -152,6 +184,7 @@ check_libreoffice_export <- function(UserInstallation = NULL) {
                "--convert-to", "pdf:writer_pdf_Export",
                "--outdir", default_root,
                input),
+      env = libreoffice_env(),
       error_on_status = FALSE,
       timeout = 45
       )

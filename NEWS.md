@@ -1,3 +1,91 @@
+# doconv 0.4.2
+
+## Issues
+
+- The visual tests (`expect_snapshot_doc()` and the functions using it)
+  now count different pixels by comparing the decoded bytes of the images.
+  The 'AE' metric of 'ImageMagick' used in 0.4.1 does not count pixels with
+  'ImageMagick' 7, where it is weighted by the size of the differences:
+  small differences, e.g. of antialiasing, were underestimated.
+
+# doconv 0.4.1
+
+## Features
+
+- New argument `show_markup` in `docx2pdf()`, `to_pdf()`, `to_miniature()`
+  and `expect_snapshot_doc()`, to show tracked changes and comments of
+  'Word' documents in the PDF and the miniature (idea from #10). It is
+  `FALSE` by default: all engines now give the final document, without
+  tracked changes marks and without comments. 'Word' on macOS was showing
+  them, and 'LibreOffice' was showing tracked changes: miniatures and
+  reference snapshots of documents with tracked changes or comments must
+  be updated. With 'LibreOffice', comments are drawn in the margin, and
+  hiding tracked changes is only supported for 'docx' files and requires
+  package 'officer'.
+- Support for 'Excel' workbooks (idea from #11): new function
+  `xlsx2pdf()`, and 'xlsx' and 'xlsm' files are now accepted by
+  `to_pdf()`, `to_miniature()` and `expect_snapshot_doc()`. With 'Excel',
+  each sheet is scaled to the width of one page, without modifying the
+  workbook; with 'LibreOffice', each sheet is exported on a single page
+  with the size of its content. The pages of the miniature are trimmed of
+  their white margins.
+
+## Issues
+
+- On Linux, 'LibreOffice' is now run without the `LD_LIBRARY_PATH` set by
+  R. R prepends its own library directories to this variable and
+  'LibreOffice' was failing ("libreglo.so cannot open shared object file"),
+  or aborting when `/usr/lib/libreoffice/program` was added to it as the
+  documentation suggested. 'locatexec' >= 0.2.1 is needed to detect
+  'LibreOffice' in this case.
+- `to_pdf()` now fails when 'LibreOffice' does not produce a PDF; it was
+  returning the output path although no file was written, as 'LibreOffice'
+  can exit without error status after an export error.
+- `to_miniature()` and the visual tests (`expect_snapshot_doc()`) now keep
+  the page order of documents of 10 pages or more; pages were sorted
+  alphabetically (page 10 before page 2). Reference miniatures of such
+  documents must be updated.
+- With testthat, `expect_snapshot_doc()` now skips the test when 'Word' or
+  'PowerPoint' is not available; it was failing with an error.
+- `to_pdf()` and `check_libreoffice_export()` no longer leave a temporary
+  directory behind when 'LibreOffice' is used.
+- The `timeout` argument of `to_pdf()` (also used by `to_miniature()`) is
+  now applied to 'LibreOffice', which could previously run without limit.
+- `to_miniature()` now uses its `dpi` argument with 'Word' and 'RTF'
+  documents; 150 was always used.
+- `expect_snapshot_doc()` now accepts '.doc' files, as documented.
+- `docx_update()` no longer creates an unused working directory, and
+  raises an explicit error on macOS when the update fails.
+- File extensions are no longer case sensitive ('.DOCX', '.PDF', etc.).
+  `to_miniature()` refused these files, and the default `output` of
+  `docx2pdf()` and `pptx2pdf()` was the input file itself.
+- The default `output` of `pptx2pdf()` is now also a '.pdf' file when the
+  input is a '.ppt' file; it was the input file itself.
+- `run_in_shiny_app()` now stops as soon as the app process stops, and
+  shows its error output; it was waiting until `timeout`. It also fails
+  when the port is already in use; the command was run against the other
+  app. The app is now started with the 'Rscript' of the running R session
+  instead of the first one found on the PATH.
+- On Windows, `docx2pdf()`, `docx_update()` and `pptx2pdf()` now work with
+  file paths containing non ASCII characters (e.g. Chinese characters).
+  The PowerShell scripts are now written in UTF-8 with a BOM, Windows
+  PowerShell was reading them with the ANSI code page and could not find
+  the file, without any error (#8).
+- `docx2pdf()`, `pptx2pdf()` and `docx_update()` (and so `to_pdf()`,
+  `to_miniature()` and `expect_snapshot_doc()`) now wait for each other
+  across R processes. 'Word' and 'PowerPoint' run as a single instance
+  and simultaneous conversions, e.g. from parallel checks, were failing
+  with "could not convert". The new dependency 'filelock' is used for
+  this.
+
+## Changes
+
+- The visual tests (`expect_snapshot_doc()` and the functions using it)
+  compare images faster: identical files are no longer decoded, and pixels
+  are compared by 'ImageMagick' (`magick::image_compare_dist()`) instead of
+  in R. The measured ratio of different pixels is unchanged.
+
+
 # doconv 0.4.0
 
 ## Features

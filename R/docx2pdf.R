@@ -36,6 +36,10 @@
 #'
 #' @param input,output file input and optional file output (default
 #' to input with pdf extension).
+#' @param show_markup if `TRUE`, tracked changes and comments are shown
+#' in the PDF, as 'Word' displays them in its "All Markup" view. If `FALSE`
+#' (the default), the PDF shows the final document, without tracked changes
+#' marks and without comments.
 #' @examples
 #' library(locatexec)
 #' if (exec_available('word')) {
@@ -50,12 +54,14 @@
 #'   }
 #' }
 #' @return the name of the produced pdf (the same value as `output`)
-docx2pdf <- function(input, output = gsub("\\.(docx|doc|rtf)$", ".pdf", input)) {
+docx2pdf <- function(input, output = gsub("\\.(docx|doc|rtf)$", ".pdf", input, ignore.case = TRUE),
+                     show_markup = FALSE) {
+  check_show_markup(show_markup)
 
   if (is_osx()) {
-    docx2pdf_osx(input = input, output = output)
+    with_office_lock(docx2pdf_osx(input = input, output = output, show_markup = show_markup))
   } else if (is_windows()) {
-    docx2pdf_win(input = input, output = output)
+    with_office_lock(docx2pdf_win(input = input, output = output, show_markup = show_markup))
   } else {
     stop("docx2pdf is only available on 'macOS' and 'Windows' systems.", call. = FALSE)
   }
@@ -64,7 +70,8 @@ docx2pdf <- function(input, output = gsub("\\.(docx|doc|rtf)$", ".pdf", input)) 
 
 #' @importFrom locatexec is_osx
 #' @importFrom processx run
-docx2pdf_osx <- function(input, output = gsub("\\.(docx|doc|rtf)$", ".pdf", input)){
+docx2pdf_osx <- function(input, output = gsub("\\.(docx|doc|rtf)$", ".pdf", input, ignore.case = TRUE),
+                         show_markup = FALSE){
   if (!is_osx()) {
     stop("docx2pdf_osx() should only be used on 'macOS' systems.", call. = FALSE)
   }
@@ -79,13 +86,14 @@ docx2pdf_osx <- function(input, output = gsub("\\.(docx|doc|rtf)$", ".pdf", inpu
   init_working_directory()
   default_root <- working_directory()
 
-  output_name <- file.path(default_root, gsub("\\.(docx|doc|rtf)$", ".pdf", basename(input)))
+  output_name <- file.path(default_root, gsub("\\.(docx|doc|rtf)$", ".pdf", basename(input), ignore.case = TRUE))
 
   script_sourcefile <- system.file(package = "doconv", "scripts", "applescripts", "docx2pdf.applescript")
   script_path <- tempfile(fileext = ".applescript")
   script_str <- readLines(script_sourcefile, encoding = "UTF-8")
   script_str[1] <- sub("%s", escape_path_applescript(input), script_str[1], fixed = TRUE)
   script_str[2] <- sub("%s", escape_path_applescript(output_name), script_str[2], fixed = TRUE)
+  script_str[3] <- sub("%s", if (show_markup) "true" else "false", script_str[3], fixed = TRUE)
   writeLines(script_str, script_path, useBytes = TRUE)
 
   res <- run("osascript", script_path, error_on_status = FALSE)
@@ -103,7 +111,8 @@ docx2pdf_osx <- function(input, output = gsub("\\.(docx|doc|rtf)$", ".pdf", inpu
 
 
 #' @importFrom locatexec is_windows
-docx2pdf_win <- function(input, output = gsub("\\.(docx|doc|rtf)$", ".pdf", input)){
+docx2pdf_win <- function(input, output = gsub("\\.(docx|doc|rtf)$", ".pdf", input, ignore.case = TRUE),
+                         show_markup = FALSE){
 
   if (!is_windows()) {
     stop("docx2pdf_win() should only be used on 'Windows' systems.", call. = FALSE)
@@ -119,14 +128,15 @@ docx2pdf_win <- function(input, output = gsub("\\.(docx|doc|rtf)$", ".pdf", inpu
   init_working_directory()
   default_root <- working_directory()
 
-  output_name <- file.path(default_root, gsub("\\.(docx|doc|rtf)$", ".pdf", basename(input)))
+  output_name <- file.path(default_root, gsub("\\.(docx|doc|rtf)$", ".pdf", basename(input), ignore.case = TRUE))
 
   script_sourcefile <- system.file(package = "doconv", "scripts", "powershell", "docx2pdf.ps1")
   script_path <- tempfile(fileext = ".ps1")
   script_str <- readLines(script_sourcefile, encoding = "UTF-8")
   script_str[1] <- sub("%s", escape_path_ps(input), script_str[1], fixed = TRUE)
   script_str[2] <- sub("%s", escape_path_ps(output_name), script_str[2], fixed = TRUE)
-  writeLines(script_str, script_path, useBytes = TRUE)
+  script_str[3] <- sub("%s", if (show_markup) "$true" else "$false", script_str[3], fixed = TRUE)
+  write_ps1(script_str, script_path)
   res <- run("powershell", args = c("-file", script_path), error_on_status = FALSE)
 
   success <- res$status == 0
@@ -169,13 +179,13 @@ docx2pdf_win <- function(input, output = gsub("\\.(docx|doc|rtf)$", ".pdf", inpu
 #'   file.copy(file, docx_out)
 #'   docx_update(input = docx_out)
 #' }
-#' @return the name of the produced pdf (the same value as `output`)
+#' @return `TRUE`, invisibly; an error is raised if the update fails.
 docx_update <- function(input) {
 
   if (is_osx()) {
-    x <- docx_update_osx(input = input)
+    x <- with_office_lock(docx_update_osx(input = input))
   } else if (is_windows()) {
-    x <- docx_update_win(input = input)
+    x <- with_office_lock(docx_update_win(input = input))
   } else {
     stop("docx_update is only available on 'macOS' and 'Windows' systems.", call. = FALSE)
   }
@@ -195,16 +205,16 @@ docx_update_osx <- function(input){
 
   input <- absolute_path(input)
 
-  init_working_directory()
-
   script_sourcefile <- system.file(package = "doconv", "scripts", "applescripts", "docxupdate.applescript")
   script_path <- tempfile(fileext = ".applescript")
   script_str <- readLines(script_sourcefile, encoding = "UTF-8")
   script_str[1] <- sub("%s", escape_path_applescript(input), script_str[1], fixed = TRUE)
   writeLines(script_str, script_path, useBytes = TRUE)
 
-  res <- run("osascript", script_path)
+  res <- run("osascript", script_path, error_on_status = FALSE)
   success <- res$status == 0
+
+  if (!success) stop("could not update ", input, call. = FALSE)
 
   success
 }
@@ -222,14 +232,11 @@ docx_update_win <- function(input){
 
   input <- absolute_path(input)
 
-  init_working_directory()
-  default_root <- working_directory()
-
   script_sourcefile <- system.file(package = "doconv", "scripts", "powershell", "docxupdate.ps1")
   script_path <- tempfile(fileext = ".ps1")
   docxupdate_str <- readLines(script_sourcefile, encoding = "UTF-8")
   docxupdate_str[1] <- sub("%s", escape_path_ps(input), docxupdate_str[1], fixed = TRUE)
-  writeLines(docxupdate_str, script_path, useBytes = TRUE)
+  write_ps1(docxupdate_str, script_path)
 
   res <- run("powershell", args = c("-file", script_path), error_on_status = FALSE)
   success <- res$status == 0
@@ -287,12 +294,12 @@ docx_update_win <- function(input){
 #'   }
 #' }
 #' @return the name of the produced pdf (the same value as `output`)
-pptx2pdf <- function(input, output = gsub("\\.pptx$", ".pdf", input)) {
+pptx2pdf <- function(input, output = gsub("\\.(pptx|ppt)$", ".pdf", input, ignore.case = TRUE)) {
 
   if (is_osx()) {
-    pptx2pdf_osx(input = input, output = output)
+    with_office_lock(pptx2pdf_osx(input = input, output = output))
   } else if (is_windows()) {
-    pptx2pdf_win(input = input, output = output)
+    with_office_lock(pptx2pdf_win(input = input, output = output))
   } else {
     stop("pptx2pdf is only available on 'macOS' and 'Windows' systems.", call. = FALSE)
   }
@@ -301,7 +308,7 @@ pptx2pdf <- function(input, output = gsub("\\.pptx$", ".pdf", input)) {
 
 #' @importFrom locatexec is_osx
 #' @importFrom processx run
-pptx2pdf_osx <- function(input, output = gsub("\\.pptx$", ".pdf", input)){
+pptx2pdf_osx <- function(input, output = gsub("\\.(pptx|ppt)$", ".pdf", input, ignore.case = TRUE)){
 
   if (!is_osx()) {
     stop("pptx2pdf_osx() should only be used on 'macOS' systems.", call. = FALSE)
@@ -317,7 +324,7 @@ pptx2pdf_osx <- function(input, output = gsub("\\.pptx$", ".pdf", input)){
   init_working_directory()
   default_root <- working_directory()
 
-  output_name <- file.path(default_root, gsub("\\.pptx$", ".pdf", basename(input)))
+  output_name <- file.path(default_root, gsub("\\.(pptx|ppt)$", ".pdf", basename(input), ignore.case = TRUE))
 
   script_sourcefile <- system.file(package = "doconv", "scripts", "applescripts", "pptx2pdf.applescript")
   script_path <- tempfile(fileext = ".applescript")
@@ -343,7 +350,7 @@ pptx2pdf_osx <- function(input, output = gsub("\\.pptx$", ".pdf", input)){
 
 
 #' @importFrom locatexec is_windows
-pptx2pdf_win <- function(input, output = gsub("\\.pptx$", ".pdf", input)){
+pptx2pdf_win <- function(input, output = gsub("\\.(pptx|ppt)$", ".pdf", input, ignore.case = TRUE)){
 
   if (!is_windows()) {
     stop("pptx2pdf_win() should only be used on 'Windows' systems.", call. = FALSE)
@@ -362,7 +369,144 @@ pptx2pdf_win <- function(input, output = gsub("\\.pptx$", ".pdf", input)){
   script_str <- readLines(script_sourcefile, encoding = "UTF-8")
   script_str[1] <- sub("%s", escape_path_ps(input), script_str[1], fixed = TRUE)
   script_str[2] <- sub("%s", escape_path_ps(normalizePath(output, mustWork = FALSE)), script_str[2], fixed = TRUE)
+  write_ps1(script_str, script_path)
+
+  res <- run("powershell", args = c("-file", script_path), error_on_status = FALSE)
+  success <- res$status == 0
+
+  # fail with informative error if conversion fails due to PS Execution Policy
+  if (!success && grepl("UnauthorizedAccess", res$stderr)) {
+    stop_on_wrong_ps_exec_policy()
+  }
+
+  if(!success) stop("could not convert ", input, call. = FALSE)
+
+  output
+}
+
+
+#' @export
+#' @title Convert xlsx to pdf
+#' @description Convert xlsx to pdf directly using "Microsoft Excel".
+#' This function will not work if "Microsoft Excel" is not available
+#' on your machine.
+#'
+#' All the sheets of the workbook are exported. Each sheet is scaled to
+#' fit the width of one page (its height can span several pages), so
+#' the scale can differ from one sheet to another. The workbook itself
+#' is not modified.
+#'
+#' The calls to "Microsoft Excel" are made differently depending on
+#' the operating system. On "Windows", a "PowerShell" script using COM
+#' technology is used to control "Microsoft Excel". On macOS, an
+#' "AppleScript" script is used to control "Microsoft Excel".
+#' @section Macos manual authorizations:
+#' On macOS the call is happening into a working
+#' directory managed with function [working_directory()].
+#'
+#' Manual interventions are necessary to authorize
+#' 'Excel' applications to write in a single directory: the working directory.
+#' These permissions must be set manually, this is required by the macOS security
+#' policy.
+#'
+#' You must also click "allow" two times to:
+#'
+#' 1. allow R to run 'AppleScript' scripts that will control Excel
+#' 2. allow Excel to write to the working directory.
+#'
+#' This process is a one-time operation.
+#' @param input,output file input and optional file output (default
+#' to input with pdf extension).
+#' @examples
+#' library(locatexec)
+#' if (exec_available('excel')) {
+#'   file <- system.file(package = "doconv",
+#'     "doc-examples/example.xlsx")
+#'
+#'   out <- xlsx2pdf(input = file,
+#'     output = tempfile(fileext = ".pdf"))
+#'
+#'   if (file.exists(out)) {
+#'     message(basename(out), " is existing now.")
+#'   }
+#' }
+#' @return the name of the produced pdf (the same value as `output`)
+xlsx2pdf <- function(input, output = gsub("\\.(xlsx|xlsm)$", ".pdf", input, ignore.case = TRUE)) {
+
+  if (is_osx()) {
+    with_office_lock(xlsx2pdf_osx(input = input, output = output))
+  } else if (is_windows()) {
+    with_office_lock(xlsx2pdf_win(input = input, output = output))
+  } else {
+    stop("xlsx2pdf is only available on 'macOS' and 'Windows' systems.", call. = FALSE)
+  }
+}
+
+
+#' @importFrom locatexec is_osx
+#' @importFrom processx run
+xlsx2pdf_osx <- function(input, output = gsub("\\.(xlsx|xlsm)$", ".pdf", input, ignore.case = TRUE)){
+
+  if (!is_osx()) {
+    stop("xlsx2pdf_osx() should only be used on 'macOS' systems.", call. = FALSE)
+  }
+
+  if (!file.exists(input)) {
+    stop("input does not exist", call. = FALSE)
+  }
+
+  input <- absolute_path(input)
+  output <- absolute_path(output)
+
+  init_working_directory()
+  default_root <- working_directory()
+
+  output_name <- file.path(default_root, gsub("\\.(xlsx|xlsm)$", ".pdf", basename(input), ignore.case = TRUE))
+
+  script_sourcefile <- system.file(package = "doconv", "scripts", "applescripts", "xlsx2pdf.applescript")
+  script_path <- tempfile(fileext = ".applescript")
+  script_str <- readLines(script_sourcefile, encoding = "UTF-8")
+  script_str[1] <- sub("%s", escape_path_applescript(input), script_str[1], fixed = TRUE)
+  script_str[2] <- sub("%s", escape_path_applescript(output_name), script_str[2], fixed = TRUE)
   writeLines(script_str, script_path, useBytes = TRUE)
+
+  res <- run("osascript", script_path, error_on_status = FALSE)
+
+  success <- res$status == 0
+
+  if(success) {
+    success <- file.copy(from = output_name, to = output, overwrite = TRUE)
+  }
+
+  rm_working_directory()
+
+  if(!success) stop("could not convert ", input, call. = FALSE)
+
+  output
+}
+
+
+#' @importFrom locatexec is_windows
+xlsx2pdf_win <- function(input, output = gsub("\\.(xlsx|xlsm)$", ".pdf", input, ignore.case = TRUE)){
+
+  if (!is_windows()) {
+    stop("xlsx2pdf_win() should only be used on 'Windows' systems.", call. = FALSE)
+  }
+
+  if (!file.exists(input)) {
+    stop("input does not exist", call. = FALSE)
+  }
+
+  input <- absolute_path(input)
+  output <- absolute_path(output)
+
+  script_sourcefile <- system.file(
+    package = "doconv", "scripts", "powershell", "xlsx2pdf.ps1")
+  script_path <- tempfile(fileext = ".ps1")
+  script_str <- readLines(script_sourcefile, encoding = "UTF-8")
+  script_str[1] <- sub("%s", escape_path_ps(input), script_str[1], fixed = TRUE)
+  script_str[2] <- sub("%s", escape_path_ps(normalizePath(output, mustWork = FALSE)), script_str[2], fixed = TRUE)
+  write_ps1(script_str, script_path)
 
   res <- run("powershell", args = c("-file", script_path), error_on_status = FALSE)
   success <- res$status == 0

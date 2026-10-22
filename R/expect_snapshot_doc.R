@@ -7,7 +7,8 @@ load_package <- function(z) {
 
 #' @title Visual test for document
 #' @description This expectation can be used with 'tinytest' and 'testthat'
-#' to check if a current document of type pdf, docx, doc, rtf, pptx or png
+#' to check if a current document of type pdf, docx, doc, rtf, pptx,
+#' xlsx, xlsm or png
 #' matches a target document. When the expectation is checked
 #' for the first time, the expectation fails and a target miniature
 #' of the document is saved in a folder named `_tinytest_doconv` or
@@ -16,6 +17,8 @@ load_package <- function(z) {
 #' @param x file path of a document
 #' @param tolerance the ratio of different pixels that is acceptable before triggering a failure.
 #' @param engine test package being used in the test suite, one of "tinytest" or "testthat".
+#' @param show_markup if `TRUE`, tracked changes and comments of a 'Word'
+#' document are shown in the miniature, see [to_pdf()].
 #' @return A [tinytest::tinytest()] or a [testthat::expect_snapshot_file] object.
 #' @export
 #' @examples
@@ -43,10 +46,12 @@ expect_snapshot_doc <- function(
     name,
     x,
     tolerance = 0.001,
-    engine = c("tinytest", "testthat")
+    engine = c("tinytest", "testthat"),
+    show_markup = FALSE
     ) {
 
   engine <- match.arg(engine)
+  check_show_markup(show_markup)
   load_package(engine)
 
   if (inherits(x, "rdocx")) {
@@ -60,11 +65,11 @@ expect_snapshot_doc <- function(
   if ("testthat" %in% engine) {
     expect_snapshot_testthat(
       name = name, x = x,
-      tolerance = tolerance)
+      tolerance = tolerance, show_markup = show_markup)
   } else {
     expect_snapshot_tinytest(
       name = name, current = x,
-      tolerance = tolerance)
+      tolerance = tolerance, show_markup = show_markup)
   }
 
 }
@@ -257,33 +262,30 @@ expect_snapshot_flextables <- function(x, name, res = 200,
 }
 
 
-expect_snapshot_testthat <- function(name, x, tolerance = 0.001) {
+expect_snapshot_testthat <- function(name, x, tolerance = 0.001, show_markup = FALSE) {
   name <- paste0(name, ".png")
   testthat::announce_snapshot_file(name = name)
   png_out <- tempfile(fileext = ".png")
 
-  file_type <- gsub("(.*)\\.(pdf|docx|pptx|rtf|png)$", "\\2", x)
+  file_type <- tolower(gsub("(.*)\\.(pdf|docx|doc|pptx|xlsx|xlsm|rtf|png)$", "\\2", x, ignore.case = TRUE))
   exec <- guess_exec(file_type)
 
+  # the snapshot is announced above, so that it is kept when the test
+  # is skipped
   if (!is.null(exec) && !exec_available(exec)) {
-    return(
-      testthat::expect_snapshot_file(
-        png_out, name,
-        compare = function(ref, new) {
-          FALSE
-        }
-      )
-    )
+    testthat::skip(paste0(shQuote(exec), " must be available to run this test"))
   }
 
   if (file_type %in% c("pdf", "docx", "doc", "rtf")) {
-    to_miniature(x, fileout = png_out, width = 1000)
+    to_miniature(x, fileout = png_out, width = 1000, show_markup = show_markup)
   } else if ("pptx" %in% file_type) {
     to_miniature(x, fileout = png_out, width = 1200)
+  } else if (file_type %in% c("xlsx", "xlsm")) {
+    to_miniature(x, fileout = png_out, width = 1000)
   } else if ("png" %in% file_type) {
     file.copy(x, png_out, overwrite = TRUE)
   } else {
-    stop("`expect_snapshot_doc()` only supports docx, pptx, rtf, pdf and png files.")
+    stop("`expect_snapshot_doc()` only supports docx, doc, pptx, xlsx, xlsm, rtf, pdf and png files.")
   }
 
   testthat::expect_snapshot_file(
@@ -294,8 +296,8 @@ expect_snapshot_testthat <- function(name, x, tolerance = 0.001) {
   )
 }
 
-expect_snapshot_tinytest <- function(current, name, tolerance = 0.001) {
-  file_type <- gsub("(.*)\\.(pdf|docx|pptx|rtf|png)$", "\\2", current)
+expect_snapshot_tinytest <- function(current, name, tolerance = 0.001, show_markup = FALSE) {
+  file_type <- tolower(gsub("(.*)\\.(pdf|docx|doc|pptx|xlsx|xlsm|rtf|png)$", "\\2", current, ignore.case = TRUE))
   exec <- guess_exec(file_type)
 
   if (!is.null(exec) && !exec_available(exec)) {
@@ -317,7 +319,8 @@ expect_snapshot_tinytest <- function(current, name, tolerance = 0.001) {
       current,
       name,
       tolerance = tolerance,
-      width = 1000
+      width = 1000,
+      show_markup = show_markup
     )
   } else if ("pptx" %in% file_type) {
     expect_office_doc_diff_tinytest(
@@ -326,17 +329,25 @@ expect_snapshot_tinytest <- function(current, name, tolerance = 0.001) {
       tolerance = tolerance,
       width = 1200
     )
-  } else if (grepl("\\.png$", current)) {
+  } else if (file_type %in% c("xlsx", "xlsm")) {
+    expect_office_doc_diff_tinytest(
+      current,
+      name,
+      tolerance = tolerance,
+      width = 1000
+    )
+  } else if (grepl("\\.png$", current, ignore.case = TRUE)) {
     expect_png_diff(current, name, tolerance = tolerance)
   } else {
-    stop("`expect_snapshot_tinytest()` only supports docx, doc, pptx, rtf, pdf and png files.")
+    stop("`expect_snapshot_tinytest()` only supports docx, doc, pptx, xlsx, xlsm, rtf, pdf and png files.")
   }
 }
 
 expect_office_doc_diff_tinytest <- function(current,
                                             name,
                                             tolerance = sqrt(.Machine$double.eps),
-                                            width = 1000) {
+                                            width = 1000,
+                                            show_markup = FALSE) {
   # portable test names
   name <- gsub(" ", "_", name)
 
@@ -347,7 +358,8 @@ expect_office_doc_diff_tinytest <- function(current,
   dir.create(tmp_current, showWarnings = FALSE, recursive = TRUE)
 
   current_miniature <- file.path(tmp_current, paste0(name, ".png"))
-  to_miniature(current, fileout = current_miniature, width = width)
+  to_miniature(current, fileout = current_miniature, width = width,
+               show_markup = show_markup)
 
   target_miniature <- file.path(tinytest_dir, basename(current_miniature))
   if (!file.exists(target_miniature)) {
@@ -431,9 +443,11 @@ expect_png_diff <- function(current,
 
 guess_exec <- function(file_type) {
   exec <- NULL
-  if (file_type %in% c("pptx", "docx", "doc", "rtf")) {
+  if (file_type %in% c("pptx", "docx", "doc", "rtf", "xlsx", "xlsm")) {
     exec <- c(
       "pptx" = "powerpoint",
+      "xlsx" = "excel",
+      "xlsm" = "excel",
       "docx" = "word",
       "doc" = "word",
       "rtf" = "word")[file_type]
@@ -441,14 +455,23 @@ guess_exec <- function(file_type) {
   exec
 }
 
-#' @importFrom magick image_raster image_read
+# ratio of different pixels, -1 if dimensions differ. Identical files are
+# not decoded; otherwise the decoded RGBA bytes are compared, a pixel
+# differs when one of its 4 bytes differs. An opaque RGB image gets an
+# alpha of 255. The 'ImageMagick' "AE" metric is not used: it is a number
+# of pixels with 6.9.12, a ratio with 6.9.13 and a ratio weighted by the
+# size of the differences with 7.1.2.
+#' @importFrom magick image_read image_data
 diff_image <- function(img1, img2) {
-  img.reference <- image_raster(image_read(img1), tidy = FALSE)
-  img.empty <- image_raster(image_read(img2), tidy = FALSE)
-  if (length(img.empty) != length(img.reference)) {
+  if (identical(unname(tools::md5sum(img1)), unname(tools::md5sum(img2)))) {
+    return(0.0)
+  }
+  reference <- image_data(image_read(img1), channels = "rgba")
+  current <- image_data(image_read(img2), channels = "rgba")
+  if (!identical(dim(reference), dim(current))) {
     return(-1.0)
   }
-  sum(img.reference != img.empty) / length(img.empty)
+  sum(colSums(reference != current) > 0) / (dim(current)[2] * dim(current)[3])
 }
 
 tinytest_dir <- "_tinytest_doconv"

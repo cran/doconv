@@ -4,11 +4,20 @@
 \alias{docx2pdf}
 \title{Convert docx to pdf}
 \usage{
-docx2pdf(input, output = gsub("\\\\.(docx|doc|rtf)$", ".pdf", input))
+docx2pdf(
+  input,
+  output = gsub("\\\\.(docx|doc|rtf)$", ".pdf", input, ignore.case = TRUE),
+  show_markup = FALSE
+)
 }
 \arguments{
 \item{input, output}{file input and optional file output (default
 to input with pdf extension).}
+
+\item{show_markup}{if \code{TRUE}, tracked changes and comments are shown
+in the PDF, as 'Word' displays them in its "All Markup" view. If \code{FALSE}
+(the default), the PDF shows the final document, without tracked changes
+marks and without comments.}
 }
 \value{
 the name of the produced pdf (the same value as \code{output})

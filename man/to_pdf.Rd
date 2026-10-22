@@ -8,7 +8,8 @@ to_pdf(
   input,
   output = gsub("\\\\.[[:alnum:]]+$", ".pdf", input),
   timeout = 120,
-  UserInstallation = NULL
+  UserInstallation = NULL,
+  show_markup = FALSE
 )
 }
 \arguments{
@@ -16,11 +17,20 @@ to_pdf(
 file is not provided, the value will be the value of input file with
 extension 'pdf'.}
 
-\item{timeout}{timeout in seconds, ignored if 0.}
+\item{timeout}{timeout in seconds that 'LibreOffice' is allowed to use
+to convert the document, ignored if 0. It is not used when 'Microsoft
+Office' converts the document.}
 
 \item{UserInstallation}{use this value to set a non-default user profile path
 for 'LibreOffice'. If not provided a temporary dir is created. It makes possibles
 to use more than a single session of 'LibreOffice'.}
+
+\item{show_markup}{if \code{TRUE}, tracked changes and comments of a 'Word'
+document are shown in the PDF. If \code{FALSE} (the default), the PDF shows
+the final document, without tracked changes marks and without comments.
+It is ignored for other documents. With 'LibreOffice', comments are
+drawn in the margin, and hiding tracked changes is only supported for
+'docx' files and requires package 'officer'.}
 }
 \value{
 the name of the produced pdf (the same value as \code{output}),
@@ -30,25 +40,29 @@ invisibly.
 Convert documents to pdf with a script using
 'Office' or 'Libre Office'.
 
-If 'Microsoft Word' and 'Microsoft PowerPoint' are available,
-files 'docx', 'doc', 'rtf' and 'pptx' will be converted to
-PDF with 'Office' via a script.
+If 'Microsoft Word', 'Microsoft PowerPoint' and 'Microsoft Excel'
+are available, files 'docx', 'doc', 'rtf', 'pptx', 'ppt', 'xlsx'
+and 'xlsm' will be converted to PDF with 'Office' via a script.
 
-If 'Microsoft Word' and 'Microsoft PowerPoint' are not available
-(on linux for example), 'Libre Office' will be used to convert
-documents. In that case the rendering can be different from
+If they are not available (on linux for example), 'Libre Office'
+will be used to convert documents. In that case the rendering can be different from
 the original document. It supports very well 'Microsoft PowerPoint'
 to PDF. 'Microsoft Word' can also be converted but some Word
 features are not supported, such as sections.
-}
-\section{Ubuntu platforms}{
 
-On some Ubuntu platforms, 'LibreOffice' require to add in
-the environment variable \code{LD_LIBRARY_PATH} the following path:
-\verb{/usr/lib/libreoffice/program} (you should see the message
-"libreglo.so cannot open shared object file" if it is the case). This
-can be done with R
-command \code{Sys.setenv(LD_LIBRARY_PATH = "/usr/lib/libreoffice/program/")}
+Workbooks ('xlsx', 'xlsm', 'xls', 'ods') are exported sheet by sheet:
+'Excel' scales each sheet to the width of one page, see \code{\link[=xlsx2pdf]{xlsx2pdf()}};
+'LibreOffice' exports each sheet on a single page with the size of
+its content.
+}
+\section{Linux platforms}{
+
+R adds its own library directories to the environment variable
+\code{LD_LIBRARY_PATH}, which made 'LibreOffice' fail when run from R
+(with the message "libreglo.so cannot open shared object file", or
+an abort when \verb{/usr/lib/libreoffice/program} was added to this
+variable). 'LibreOffice' is now run without this variable, there is
+nothing to set.
 }
 
 \examples{

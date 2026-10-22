@@ -15,12 +15,14 @@ to_miniature(
   dpi = 150,
   fileout = NULL,
   timeout = 120,
+  show_markup = FALSE,
   ...
 )
 }
 \arguments{
 \item{filename}{input filename, supported documents are 'Microsoft Word',
-'Microsoft PowerPoint', 'RTF' and 'PDF' document.}
+'Microsoft PowerPoint', 'Microsoft Excel', 'RTF' and 'PDF' document.
+The pages of an 'Excel' workbook are trimmed of their white margins.}
 
 \item{row}{row index for every pages. 0 are to be used to drop
 the page from the final minature. If both \code{row} and \code{ncol} are
@@ -45,16 +47,16 @@ When set, portrait pages use \code{ncol} per row and landscape pages use
 
 \item{width}{width of a single image, recommanded values are:
 \itemize{
-\item 650 for docx files
+\item 650 for docx and xlsx files
 \item 750 for pptx files
 }}
 
-\item{border_color}{border color, see \code{\link[magick:composite]{magick::image_border()}}.}
+\item{border_color}{border color, see \code{\link[magick:image_border]{magick::image_border()}}.}
 
 \item{border_geometry}{border geometry to be added around
-images, see \code{\link[magick:composite]{magick::image_border()}}.}
+images, see \code{\link[magick:image_border]{magick::image_border()}}.}
 
-\item{dpi}{resolution (dots per inch) to use for images, see \code{\link[pdftools:pdf_render_page]{pdftools::pdf_convert()}}.}
+\item{dpi}{resolution (dots per inch) to use for images, see \code{\link[pdftools:pdf_convert]{pdftools::pdf_convert()}}.}
 
 \item{fileout}{if not NULL, result is saved in a png file whose filename
 is defined by this argument.}
@@ -62,10 +64,13 @@ is defined by this argument.}
 \item{timeout}{timeout in seconds that libreoffice is allowed to use
 in order to generate the corresponding pdf file, ignored if 0.}
 
+\item{show_markup}{if \code{TRUE}, tracked changes and comments of a 'Word'
+document are shown, see \code{\link[=to_pdf]{to_pdf()}}. Ignored for other documents.}
+
 \item{...}{arguments used by webshot2 when HTML document.}
 }
 \value{
-a magick image object as returned by \code{\link[magick:editing]{magick::image_read()}}.
+a magick image object as returned by \code{\link[magick:image_read]{magick::image_read()}}.
 }
 \description{
 Convert a file into an image (magick image) where the
